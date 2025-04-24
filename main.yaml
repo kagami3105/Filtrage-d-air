@@ -1,0 +1,86 @@
+esphome:
+  name: esp-relay-x2
+  friendly_name: Esp-relay x2
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "yVEhJ7728qn2e91USuAJg6jtQXn9ZyzpybF/BffcN/o="
+
+ota:
+  - platform: esphome
+    password: "448063bf5296a2b75e2b12b291d33713"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+# Configure OneWire for Dallas Temperature Sensor
+one_wire:
+  - platform: gpio
+    pin: GPIO4
+
+# Define sensors
+sensor:
+  - platform: dallas_temp
+    address: 0xb7030597945aac28  # Replace with your sensor address
+    name: "Temperature Sensor"
+    id: temp_sensor
+
+# Define GPIO Outputs
+switch:
+  - platform: gpio
+    pin: GPIO16
+    name: "Relais 1"
+    id: relais_1
+  
+  - platform: gpio
+    pin: GPIO17
+    name: "Relais 2"
+    id: relais_2
+
+  - platform: template
+    name: "Mode Auto"
+    id: mode_auto
+    optimistic: true
+
+
+# Define the LED
+output:
+  - platform: gpio
+    pin: GPIO23
+    id: led_builtin
+
+# Define automation to control relays based on temperature
+interval:
+  - interval: 1s
+    then:
+      - if:
+          condition:
+            switch.is_on: mode_auto
+          then:
+            - lambda: |-
+                float temp = id(temp_sensor).state;
+                ESP_LOGI("temperature", "Température actuelle: %.2f °C", temp);
+
+                if (temp > 23 && temp < 25) {
+                  id(relais_1).turn_on();
+                  id(relais_2).turn_off();
+                  ESP_LOGI("control", "System Activated => 1er vitesse");
+                } else if (temp >= 25) {
+                  id(relais_1).turn_on();
+                  id(relais_2).turn_on();
+                  ESP_LOGI("control", "System Activated => 2ème vitesse");
+                } else {
+                  id(relais_1).turn_off();
+                  id(relais_2).turn_off();
+                  ESP_LOGI("control", "System Deactivated");
+                }
